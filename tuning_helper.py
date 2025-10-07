@@ -1,0 +1,54 @@
+import sys
+from serial import Serial, SerialException
+
+var_list = {
+    "NONE":0, 
+    "LINEAR":1, 
+    "ANGULAR":2, 
+    "LEFT_BIAS":3, 
+    "KP":4, 
+    "KI":5, 
+    "KD":6, 
+    "CONTROL_MODE":7
+}
+
+def main():
+    cxn = init_connection()
+    while True:
+        print("Enter the number of the variable to tune:")
+        for name,num in var_list.items():
+            print(f"{name}: {num}")
+        user_in_choice = input("Choice: ")
+        if int(user_in_choice) not in {0,1,2,3,4,5,6,7}:
+            continue
+
+        user_in_value = input("Enter the float value to pass to the variable: ")
+        try:
+            user_in_float = float(user_in_value)
+        except ValueError:
+            print("Entered value must be convertible to a float")
+            continue
+
+        # Pass value over serial
+        ascii_line = f"{user_in_choice}\n".encode("ascii")
+        cxn.write(ascii_line)  # Begins the servo movement
+        cxn.flush()
+
+        ascii_line = f"{user_in_float}\n".encode("ascii")
+        cxn.write(ascii_line)  # Begins the servo movement
+        cxn.flush()
+
+def init_connection():
+    """
+    Initialize serial connection with a port specified by the first argument
+    passed when calling the python file.
+    """
+    port = "/dev/cu.usbmodem1051DB37DE2C2"
+    if len(sys.argv) > 1:
+        port = sys.argv[1]
+    cxn = Serial(port, baudrate=9600)
+    cxn.write([int(1)])
+    return cxn
+
+if __name__ == "__main__":
+    main()
