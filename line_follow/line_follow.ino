@@ -40,6 +40,9 @@ int SENSOR_OUT_RANGE = 400;
 // State of waiting for tuning
 int state = NONE;
 
+// Current time
+unsigned long current_time;
+
 // Current base variables
 float linear_base = 0.5;
 float angular_base = 0.5;
@@ -101,7 +104,9 @@ void loop() {
         //readings.right = 300;
 
         // PID CONTROL
-        float dt = 0.01;
+        unsigned long new_time = millis();
+        float dt = (float)(new_time - current_time);
+        current_time = new_time;
         float previous_error = 0.1;
         float integral = 0.0;
         ControllerReturn pid_out = pid_control(readings,kp,ki,kd,integral,previous_error,dt);
@@ -222,10 +227,10 @@ float find_error(SensorRead readings) {
     }
     //float rl = (float)readings.left / 1023.0;
     //float rr = (float)readings.right / 1023.0;
-    float err = diff / (float)(SENSOR_OUT_RANGE);
+    float err = -1 * diff / (float)(SENSOR_OUT_RANGE);
     Serial.println("\n\n\nerr: ");
     Serial.println(err);
-    return err;
+    return;
 }
 
 void bang_bang_control(SensorRead readings) {
@@ -260,12 +265,18 @@ ControllerReturn pid_control(SensorRead readings,float kp,float ki,float kd,floa
     return out;
 }
 
-void log_over_serial(SensorRead readings, int speed_left, int speed_right) {
+void log_over_serial(SensorRead readings, int speed_left, int speed_right, float kp, float ki, float kd) {
     Serial.print(readings.left);
     Serial.print(",");
     Serial.print(readings.right);
     Serial.print(",");
     Serial.print(speed_left);
     Serial.print(",");
-    Serial.println(speed_right);
+    Serial.print(speed_right);
+    Serial.print(",");
+    Serial.print(kp);
+    Serial.print(",");
+    Serial.print(ki);
+    Serial.print(",");
+    Serial.println(kd);
 }
