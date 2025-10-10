@@ -1,3 +1,4 @@
+""" Logging functionality to record and display relevant line follow values """
 import sys
 import math
 import matplotlib.pyplot as plt
@@ -6,7 +7,15 @@ import numpy as np
 
 class VisualLogger:
     """
+    Class to record and display data logged over the serial connection
 
+    Attributes: 
+        verbose: whether to print verbose output from serial read
+        cxn: serial connection object
+        var_list: enum of variable names versus integer id
+        num_log_fields: how many fields are passed over serial
+        measurement_history: how many measurements to display at once
+        iteration: current iteration of the serial data reading, modulo measurement_history
     """
     def __init__(self,verbose,spoof_data):
         self.verbose = verbose
@@ -120,7 +129,19 @@ class VisualLogger:
 
     def display_data(self,rl,rr,ml,mr,kp,ki,kd,timestamp):
         """
+        Plots the most recent window of sensor readings via Matplotlib,
+        and inserts each value in the correct array position
+        Takes in a single value for each parameter over serial
 
+        Args:   
+            rl: left sensor reading
+            rr: right sensor reading
+            ml: left motor command
+            mr: right motor command
+            kp: proportional coefficient
+            ki: integral coefficient
+            kd: derivative coefficient
+            timestamp: measurement time, in ms
         """
         start = self.iteration
         end = self.iteration + self.measurement_history
@@ -143,19 +164,17 @@ class VisualLogger:
         self.kd_arr[end] = kd
         self.timestamps[end] = timestamp
 
-        t = self.timestamps[start:end]
-        t2 = self.timestamps[start+1:end]
-        end2 = end-1
+        t = self.timestamps[start+1:end]
 
-        self.line_rl.set_data(t2,self.reading_l_arr[start+1:end])
-        self.line_rr.set_data(t2,self.reading_r_arr[start+1:end])
-        
-        self.line_ml.set_data(t2,self.motor_l_arr[start+1:end])
-        self.line_mr.set_data(t2,self.motor_r_arr[start+1:end])
-        
-        self.line_kp.set_data(t2,self.kp_arr[start+1:end])
-        self.line_ki.set_data(t2,self.ki_arr[start+1:end])
-        self.line_kd.set_data(t2,self.kd_arr[start+1:end])
+        self.line_rl.set_data(t,self.reading_l_arr[start+1:end])
+        self.line_rr.set_data(t,self.reading_r_arr[start+1:end])
+
+        self.line_ml.set_data(t,self.motor_l_arr[start+1:end])
+        self.line_mr.set_data(t,self.motor_r_arr[start+1:end])
+
+        self.line_kp.set_data(t,self.kp_arr[start+1:end])
+        self.line_ki.set_data(t,self.ki_arr[start+1:end])
+        self.line_kd.set_data(t,self.kd_arr[start+1:end])
 
         for a in self.ax:
             a.relim()
@@ -165,6 +184,10 @@ class VisualLogger:
         plt.pause(0.001)
 
     def spoof_data(self):
+        """
+        Manually generate data to test plotting in case the Arduino
+        connection isn't available. 
+        """
         count = 0
         while True:
             try:
