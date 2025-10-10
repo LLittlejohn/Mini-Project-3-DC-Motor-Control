@@ -278,5 +278,7 @@ void log_over_serial(SensorRead readings, int speed_left, int speed_right, float
     Serial.print(",");
     Serial.print(ki);
     Serial.print(",");
-    Serial.println(kd);
+    Serial.print(kd);
+    Serial.print(",");
+    Serial.println(millis())
 }
