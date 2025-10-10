@@ -1,17 +1,20 @@
 #include <Wire.h>
 #include <Adafruit_MotorShield.h>
 
+// Return type of PID controller
 typedef struct {
     float control;
     float integral;
     float error;
 } ControllerReturn;
 
+// Return type of sensor read function
 typedef struct {
     int left;
     int right;
 } SensorRead;
 
+// Return type of motor command function
 typedef struct {
     int cmd_left;
     int cmd_right;
@@ -51,7 +54,8 @@ float kp = 0.3;
 float ki = 0;
 float kd = 0;
 
-float error = 0;
+float previous_error = 0;
+float error_hist[5] = {0.0,0.0,0.0,0.0,0.0};
 
 Adafruit_MotorShield AFMS = Adafruit_MotorShield(); 
 Adafruit_DCMotor *motor_left = AFMS.getMotor(MOTOR_LEFT_PIN);
@@ -108,9 +112,22 @@ void loop() {
         unsigned long new_time = millis();
         float dt = (float)(new_time - current_time);
         current_time = new_time;
-        float previous_error = 0.1;
-        float integral = 0.0;
-        ControllerReturn pid_out = pid_control(readings,kp,ki,kd,integral,previous_error,dt);
+
+        // calculate integral error to pass in
+        float sum_integral = 0.0;
+        for (i = 0; i < 5; ++i) {
+            sum_integral += error_hist[i];
+        }
+        sum_integral /= 5;
+
+        ControllerReturn pid_out = pid_control(readings,kp,ki,kd,sum_integral,previous_error,dt);
+        previous_error = pid_out.error;
+
+        // Remake integral to reflect previous terms
+        for (i = 0; i < 4; ++i) {
+            error_hist[i] = error_hist[i+1];
+        }
+        error_hist[5] = pid_out.error;
 
         // placeholder
         /*
