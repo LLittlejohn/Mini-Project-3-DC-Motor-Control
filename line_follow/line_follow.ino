@@ -79,6 +79,7 @@ void loop() {
     if (Serial.available() > 0) {
 
         if (state != NONE) {
+            cmds = drive(0.0,0.0,0.0)
             // state not NONE means we're waiting for tuning value
             tuningSetValue();
         } else {
