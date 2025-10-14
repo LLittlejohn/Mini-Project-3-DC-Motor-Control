@@ -70,6 +70,7 @@ void setup() {
     pinMode(READING_RIGHT_PIN, INPUT);
 
     AFMS.begin();
+    current_time = millis();
 }
 
 void loop() {
@@ -79,30 +80,36 @@ void loop() {
     // delay(1000);
 
     // Check for serial input for tuning
-    /*
+    
     if (Serial.available() > 0) {
+        String line = Serial.readStringUntil('\n');
+
+        line.trim();
+        if (line.length() == 0) {
+            return;
+        }
 
         if (state != NONE) {
-            cmds = drive(0.0,0.0,0.0);
+            MotorCommands cmds = drive(0.0,0.0,0.0);
             // state not NONE means we're waiting for tuning value
-            tuningSetValue();
+            tuningSetValue(line.toFloat());
         } else {
-            int serial_read = Serial.parseInt();
+            int serial_read = line.toInt();
             if (serial_read != NONE) {
                 state = serial_read;
             }
         }
     }
-    */
+    
 
     // If driving
     // Serial.println(state);
     //state == NONE;
     if (state == NONE) {
         SensorRead readings = readSensors();
-        Serial.print("Readng left: ");
+        Serial.print("Reading left: ");
         Serial.print(readings.left);
-        Serial.print("Readng right: ");
+        Serial.print("Reading right: ");
         Serial.println(readings.right);
         //SensorRead readings;
         //readings.left = 100;
@@ -115,7 +122,7 @@ void loop() {
 
         // calculate integral error to pass in
         float sum_integral = 0.0;
-        for (i = 0; i < 5; ++i) {
+        for (int i = 0; i < 5; ++i) {
             sum_integral += error_hist[i];
         }
         sum_integral /= 5;
@@ -124,10 +131,10 @@ void loop() {
         previous_error = pid_out.error;
 
         // Remake integral to reflect previous terms
-        for (i = 0; i < 4; ++i) {
+        for (int i = 0; i < 4; ++i) {
             error_hist[i] = error_hist[i+1];
         }
-        error_hist[5] = pid_out.error;
+        error_hist[4] = pid_out.error;
 
         // placeholder
         /*
@@ -149,28 +156,31 @@ SensorRead readSensors() {
     return readings;
 }
 
-void tuningSetValue() {
-    // TODO have variables as a struct and pass the address
-    float serial_read = Serial.parseFloat();
+void tuningSetValue(float val) {
+
+    while (1) {
+        Serial.println("exit");
+    }
+
     // Update variable values
     switch (state) {
         case LINEAR:
-            linear_base = serial_read;
+            linear_base = val;
             break;
         case ANGULAR:
-            angular_base = serial_read;
+            angular_base = val;
             break;
         case LEFT_BIAS:
-            left_bias = serial_read;
+            left_bias = val;
             break;
         case KP:
-            kp = serial_read;
+            kp = val;
             break;
         case KI:
-            ki = serial_read;
+            ki = val;
             break;
         case KD:
-            kd = serial_read;
+            kd = val;
             break;
     }
     state = NONE;
@@ -248,7 +258,7 @@ float find_error(SensorRead readings) {
     float err = -1 * diff / (float)(SENSOR_OUT_RANGE);
     Serial.println("\n\n\nerr: ");
     Serial.println(err);
-    return;
+    return err;
 }
 
 void bang_bang_control(SensorRead readings) {
@@ -261,7 +271,7 @@ void bang_bang_control(SensorRead readings) {
     if (readings.right - tolerance > readings.left) {
         cmds = drive(linear_base,-1*angular_base,left_bias);
     }
-    log_over_serial(readings,cmds.cmd_left,cmds.cmd_right);
+    log_over_serial(readings,cmds.cmd_left,cmds.cmd_right,kp,ki,kd);
 }
 
 ControllerReturn pid_control(SensorRead readings,float kp,float ki,float kd,float integral,float previous_error,float dt) {
@@ -279,7 +289,7 @@ ControllerReturn pid_control(SensorRead readings,float kp,float ki,float kd,floa
     out.error = error;
 
     MotorCommands cmds = drive(linear_base,out.control,left_bias);
-    log_over_serial(readings,cmds.cmd_left,cmds.cmd_right);
+    log_over_serial(readings,cmds.cmd_left,cmds.cmd_right,kp,ki,kd);
     return out;
 }
 
@@ -298,5 +308,5 @@ void log_over_serial(SensorRead readings, int speed_left, int speed_right, float
     Serial.print(",");
     Serial.print(kd);
     Serial.print(",");
-    Serial.println(millis())
+    Serial.println(millis());
 }

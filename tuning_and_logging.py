@@ -1,9 +1,57 @@
-""" Logging functionality to record and display relevant line follow values """
 import sys
+import time
+from serial import Serial
 import math
 import matplotlib.pyplot as plt
-from serial import Serial
 import numpy as np
+import threading
+
+var_list = {
+    "NONE":0, 
+    "LINEAR":1, 
+    "ANGULAR":2, 
+    "LEFT_BIAS":3, 
+    "KP":4, 
+    "KI":5, 
+    "KD":6, 
+    "STOP":7
+}
+
+class TuningHelper():
+    def __init__(self,connection):
+        self.cxn = connection
+
+    def main_loop(self):
+        while True:
+            print("Enter the number of the variable to tune:")
+            for name,num in var_list.items():
+                print(f"{name}: {num}")
+            user_in_choice = input("Choice: ")
+            print("got choice")
+            try:
+                if int(user_in_choice) not in {0,1,2,3,4,5,6,7}:
+                    continue
+            except ValueError:
+                continue
+
+            user_in_value = input("Enter the float value to pass to the variable: ")
+            try:
+                user_in_float = float(user_in_value)
+            except ValueError:
+                print("Entered value must be convertible to a float")
+                continue
+
+            # Pass value over serial
+            print("about to pass")
+            ascii_line = f"{user_in_choice}\n".encode("ascii")
+            self.cxn.write(ascii_line)
+            self.cxn.flush()
+
+            print("passed one value")
+            ascii_line = f"{user_in_float}\n".encode("ascii")
+            self.cxn.write(ascii_line)
+            self.cxn.flush()
+            print("passed both values")
 
 class VisualLogger:
     """
@@ -17,11 +65,11 @@ class VisualLogger:
         measurement_history: how many measurements to display at once
         iteration: current iteration of the serial data reading, modulo measurement_history
     """
-    def __init__(self,verbose,spoof_data):
+    def __init__(self,cxn,verbose,spoof_data):
         self.verbose = verbose
 
         if not spoof_data:
-            self.cxn = self.init_connection()
+            self.cxn = cxn
         else:
             self.cxn = None
 
@@ -85,47 +133,42 @@ class VisualLogger:
     def main_loop(self):
         """ Main loop to listen to and display data """
         while True:
-            try:
-                #print("start loop")
-                result = self.cxn.readline().decode("ascii").strip()
+            #print("start loop")
+            result = self.cxn.readline().decode("ascii").strip()
 
-                if len(result) < 1:  # Ignore incomplete data
-                    continue
+            if len(result) < 1:  # Ignore incomplete data
+                continue
 
-                result_split = result.split(",")
+            result_split = result.split(",")
 
-                # Ignore incomplete data
-                if len(result_split) < self.num_log_fields or "" in result_split:
-                    continue
+            # Ignore incomplete data
+            if len(result_split) < self.num_log_fields or "" in result_split:
+                continue
 
-                # Useful information in case data processing is wrong
-                if self.verbose:
-                    print(type(result))
-                    print(result)
-                    print(result_split)
-                    print(type(result_split[0]))
+            # Useful information in case data processing is wrong
+            if self.verbose:
+                print(type(result))
+                print(result)
+                print(result_split)
+                print(type(result_split[0]))
 
-                # Arduino script indicates scan is complete by passing
-                # negatives; break out of loop upon receiving these
-                if "-1" in result_split:
-                    break
+            # Arduino script indicates scan is complete by passing
+            # negatives; break out of loop upon receiving these
+            if "-1" in result_split:
+                return
 
-                reading_l = int(result_split[0])
-                reading_r = int(result_split[1])
-                motor_l = float(result_split[2])
-                motor_r = float(result_split[3])
-                kp = float(result_split[4])
-                ki = float(result_split[5])
-                kd = float(result_split[6])
-                timestamp = int(result_split[7])
+            reading_l = int(result_split[0])
+            reading_r = int(result_split[1])
+            motor_l = float(result_split[2])
+            motor_r = float(result_split[3])
+            kp = float(result_split[4])
+            ki = float(result_split[5])
+            kd = float(result_split[6])
+            timestamp = int(result_split[7])
 
-                self.display_data(reading_l,reading_r,motor_l,motor_r,kp,ki,kd,timestamp)
-                self.iteration += 1
-                self.iteration %= self.measurement_history
-
-            except KeyboardInterrupt:
-                print("Keyboard Interrupt received, exiting")
-                sys.exit(0)
+            self.display_data(reading_l,reading_r,motor_l,motor_r,kp,ki,kd,timestamp)
+            self.iteration += 1
+            self.iteration %= self.measurement_history
 
     def display_data(self,rl,rr,ml,mr,kp,ki,kd,timestamp):
         """
@@ -206,23 +249,31 @@ class VisualLogger:
             except KeyboardInterrupt:
                 sys.exit(0)
 
-    def init_connection(self):
-        """
-        Initialize serial connection with a port specified by the first argument
-        passed when calling the python file.
-        """
-        port = "/dev/cu.usbmodem1051DB37DE2C2"
-        if len(sys.argv) > 1:
-            port = sys.argv[1]
-        cxn = Serial(port, baudrate=9600)
-        cxn.write([int(1)])
-        return cxn
+def init_connection():
+    """
+    Initialize serial connection with a port specified by the first argument
+    passed when calling the python file.
+    """
+    port = "/dev/cu.usbmodem1051DB37DE2C2"
+    if len(sys.argv) > 1:
+        port = sys.argv[1]
+    cxn = Serial(port, baudrate=9600)
+    time.sleep(1.0)
+    return cxn
 
 if __name__ == "__main__":
     spoof_data = False # Change to True if testing visualization
-    if spoof_data:
-        logger = VisualLogger(verbose=True,spoof_data=True)
-        logger.spoof_data()
-    else:
-        logger = VisualLogger(verbose=True,spoof_data=False)
-        logger.main_loop()
+    cxn = init_connection()
+    tuner = TuningHelper(connection=cxn)
+    logger = VisualLogger(cxn=cxn,verbose=True,spoof_data=spoof_data)
+
+    tune_thread = threading.Thread(target=tuner.main_loop,daemon=True)
+
+    try:
+        tune_thread.start()
+        while True:
+            #logger.main_loop()
+            pass
+    except KeyboardInterrupt:
+        tune_thread.join()
+        sys.exit()

@@ -1,4 +1,5 @@
 import sys
+import time
 from serial import Serial, SerialException
 
 var_list = {
@@ -18,7 +19,11 @@ def main():
         print("Enter the number of the variable to tune:")
         for name,num in var_list.items():
             print(f"{name}: {num}")
-        user_in_choice = input("Choice: ")
+        try:
+            user_in_choice = input("Choice: ")
+        except ValueError:
+            continue
+
         if int(user_in_choice) not in {0,1,2,3,4,5,6,7}:
             continue
 
@@ -47,7 +52,7 @@ def init_connection():
     if len(sys.argv) > 1:
         port = sys.argv[1]
     cxn = Serial(port, baudrate=9600)
-    cxn.write([int(1)])
+    time.sleep(1.0)
     return cxn
 
 if __name__ == "__main__":
