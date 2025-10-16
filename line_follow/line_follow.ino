@@ -1,6 +1,9 @@
 #include <Wire.h>
 #include <Adafruit_MotorShield.h>
 
+// Good parameters
+// 0.6 kp, 0.0 ki, 0.9 kd, 40 max speed
+
 // Return type of PID controller
 typedef struct {
     float control;
@@ -31,11 +34,13 @@ int READING_RIGHT_PIN = A1;
 // Distance between wheel centers, in meters
 // float TRACK_WIDTH = 0.0129;
 float TRACK_WIDTH = 1.0;
-float ANGULAR_STRENGTH = 1.0;
+float ANGULAR_STRENGTH = 0.7;
 
 // Maximum motor speed
-int MAX_SPEED = 100;
+int MAX_SPEED = 80;
+int MIN_SPEED = 0;
 
+// Best on carpet has been 50, 0.6, 0, 0.9
 
 // Difference between max sensor reading and min sensor reading
 int SENSOR_OUT_RANGE = 400;
@@ -47,12 +52,12 @@ int state = NONE;
 unsigned long current_time;
 
 // Current base variables
-float linear_base = 0.5;
+float linear_base = 0.3;
 float angular_base = 0.5;
 float left_bias = 0;
-float kp = 0.3;
-float ki = 0;
-float kd = 0;
+float kp = 0.6;
+float ki = 0.0;
+float kd = 1.5;
 
 float previous_error = 0;
 float error_hist[5] = {0.0,0.0,0.0,0.0,0.0};
@@ -135,15 +140,6 @@ void loop() {
             error_hist[i] = error_hist[i+1];
         }
         error_hist[4] = pid_out.error;
-
-        // placeholder
-        /*
-        if (readings.left > readings.right) {
-            drive(linear_base,angular_base,left_bias);
-        } else {
-            drive(linear_base,-1 * angular_base,left_bias);
-        }
-        */
     }
 }
 
@@ -207,6 +203,7 @@ MotorCommands drive(float linear, float angular, float left_motor_bias) {
     if (vl < 0) {
         speed_l = (int)(-1 * MAX_SPEED * vl);
         if (speed_l > MAX_SPEED) {speed_l = MAX_SPEED;}
+        if (speed_l < MIN_SPEED) {speed_l = MIN_SPEED;}
         motor_left->setSpeed(speed_l);
         Serial.print("Speed L: +");
         Serial.println(speed_l);
@@ -215,6 +212,7 @@ MotorCommands drive(float linear, float angular, float left_motor_bias) {
     } else {
         speed_l = (int)(MAX_SPEED * vl);
         if (speed_l > MAX_SPEED) {speed_l = MAX_SPEED;}
+        if (speed_l < MIN_SPEED) {speed_l = MIN_SPEED;}
         motor_left->setSpeed(speed_l);
         Serial.print("Speed L: -");
         Serial.println(speed_l);
@@ -225,6 +223,7 @@ MotorCommands drive(float linear, float angular, float left_motor_bias) {
     if (vr < 0) {
         speed_r = (int)(-1 * MAX_SPEED * vr);
         if (speed_r > MAX_SPEED) {speed_r = MAX_SPEED;}
+        if (speed_r < MIN_SPEED) {speed_r = MIN_SPEED;}
         motor_right->setSpeed(speed_r);
         Serial.print("Speed R: +");
         Serial.println(speed_r);
@@ -233,6 +232,7 @@ MotorCommands drive(float linear, float angular, float left_motor_bias) {
     } else {
         speed_r = (int)(MAX_SPEED * vr);
         if (speed_r > MAX_SPEED) {speed_r = MAX_SPEED;}
+        if (speed_r < MIN_SPEED) {speed_r = MIN_SPEED;}
         motor_right->setSpeed(speed_r);
         Serial.print("Speed R: -");
         Serial.println(speed_r);
