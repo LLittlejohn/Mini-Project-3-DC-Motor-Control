@@ -20,11 +20,11 @@ def main():
         for name,num in var_list.items():
             print(f"{name}: {num}")
         try:
-            user_in_choice = input("Choice: ")
+            user_in_choice = int(input("Choice: "))
         except ValueError:
             continue
 
-        if int(user_in_choice) not in {0,1,2,3,4,5,6,7}:
+        if user_in_choice not in {0,1,2,3,4,5,6,7}:
             continue
 
         user_in_value = input("Enter the float value to pass to the variable: ")
@@ -35,13 +35,18 @@ def main():
             continue
 
         # Pass value over serial
-        ascii_line = f"{user_in_choice}\n".encode("ascii")
-        cxn.write(ascii_line)  # Begins the servo movement
+        line = f"{user_in_choice}\r\n".encode("ascii")
+        cxn.write(line)  # Begins the servo movement
         cxn.flush()
-
-        ascii_line = f"{user_in_float}\n".encode("ascii")
-        cxn.write(ascii_line)  # Begins the servo movement
+        time.sleep(0.1)
+        print(f"result: {cxn.readline().decode('utf-8').strip()}")
+        line = f"{user_in_float}\r\n".encode("ascii")
+        cxn.write(line)  # Begins the servo movement
         cxn.flush()
+        print(f"result: {cxn.readline().decode('utf-8').strip()}")
+        for i in range(10):
+            print(f"result: {cxn.readline().decode('utf-8').strip()}")
+            time.sleep(0.01)
 
 def init_connection():
     """

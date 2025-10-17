@@ -20,11 +20,13 @@ class VisualLogger:
     def __init__(self,verbose,spoof_data):
         self.verbose = verbose
 
+        # Initiate serial connection with Arduino
         if not spoof_data:
             self.cxn = self.init_connection()
         else:
             self.cxn = None
 
+        # IDs of parameters to tune (matches up with enum for tuning on the Arduino)
         self.var_list = {
             "NONE":0, 
             "LINEAR":1, 
@@ -35,10 +37,12 @@ class VisualLogger:
             "KD":6, 
             "CONTROL_MODE":7
         }
-        self.num_log_fields = 8
-        self.measurement_history = 500
+
+        self.num_log_fields = 8 # Number of fields passed over serial when logging
+        self.measurement_history = 500 # Number of values to plot at once
         self.iteration = 0
 
+        # Initialize arrays to store readings
         self.reading_l_arr = np.zeros((self.measurement_history * 2),dtype=int)
         self.reading_r_arr = np.zeros((self.measurement_history * 2),dtype=int)
         self.motor_l_arr = np.zeros((self.measurement_history * 2),dtype=float)
@@ -51,7 +55,10 @@ class VisualLogger:
         self.init_plot()
 
     def init_plot(self):
-        """ Initialize plots """
+        """
+        Initialize plots to visualize data
+        Plots are updated by changing the data each line represents
+        """
         self.fig,self.ax = plt.subplots(nrows=3,ncols=1)
 
         self.line_rl = self.ax[0].plot([],[])[0]
@@ -86,15 +93,14 @@ class VisualLogger:
         """ Main loop to listen to and display data """
         while True:
             try:
-                #print("start loop")
+                # Read input on serial
                 result = self.cxn.readline().decode("ascii").strip()
 
-                if len(result) < 1:  # Ignore incomplete data
+                if len(result) < 1:  # Ignore empty data
                     continue
-
                 result_split = result.split(",")
 
-                # Ignore incomplete data
+                # Ignore data that isn't the number of fields we expect
                 if len(result_split) < self.num_log_fields or "" in result_split:
                     continue
 
@@ -105,11 +111,7 @@ class VisualLogger:
                     print(result_split)
                     print(type(result_split[0]))
 
-                # Arduino script indicates scan is complete by passing
-                # negatives; break out of loop upon receiving these
-                if "-1" in result_split:
-                    break
-
+                # Cast passed fields to correct data types
                 reading_l = int(result_split[0])
                 reading_r = int(result_split[1])
                 motor_l = float(result_split[2])
@@ -119,6 +121,7 @@ class VisualLogger:
                 kd = float(result_split[6])
                 timestamp = int(result_split[7])
 
+                # Display correct data given the iteration
                 self.display_data(reading_l,reading_r,motor_l,motor_r,kp,ki,kd,timestamp)
                 self.iteration += 1
                 self.iteration %= self.measurement_history
@@ -146,6 +149,7 @@ class VisualLogger:
         start = self.iteration
         end = self.iteration + self.measurement_history
 
+        # Add data to array
         self.reading_l_arr[start] = rl
         self.reading_r_arr[start] = rr
         self.motor_l_arr[start] = ml
@@ -155,6 +159,7 @@ class VisualLogger:
         self.kd_arr[start] = kd
         self.timestamps[start] = timestamp
 
+        # Add data to shifted indices of array
         self.reading_l_arr[end] = rl
         self.reading_r_arr[end] = rr
         self.motor_l_arr[end] = ml
@@ -166,6 +171,7 @@ class VisualLogger:
 
         t = self.timestamps[start+1:end]
 
+        # Change data in plotted lines to reflect new data
         self.line_rl.set_data(t,self.reading_l_arr[start+1:end])
         self.line_rr.set_data(t,self.reading_r_arr[start+1:end])
 
@@ -176,6 +182,7 @@ class VisualLogger:
         self.line_ki.set_data(t,self.ki_arr[start+1:end])
         self.line_kd.set_data(t,self.kd_arr[start+1:end])
 
+        # Rescale axes to show data properly
         for a in self.ax:
             a.relim()
             a.autoscale_view()
